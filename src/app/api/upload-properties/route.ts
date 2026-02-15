@@ -140,21 +140,24 @@ export async function POST(request: NextRequest) {
         const row = rows[rowIndex];
 
         // Skip empty rows
-        if (!row || row.every((cell: any) => !cell || String(cell).trim() === "")) {
+        if (!row || row.length === 0 || row.every((cell: any) => !cell || String(cell).trim() === "")) {
           continue;
         }
 
-        // Extract comment from last column
-        const comment = row.length > 0 ? String(row[row.length - 1] || "").trim() : "";
+        // Determine if last column is a comment (only if row has 4+ columns)
+        // Otherwise, parse all columns for data
+        const hasCommentColumn = row.length >= 4;
+        const dataEndIndex = hasCommentColumn ? row.length - 1 : row.length;
+        const comment = hasCommentColumn ? String(row[row.length - 1] || "").trim() : "";
 
-        // Try to extract name, email, phone from the row (excluding last column which is comment)
+        // Try to extract name, email, phone from the row
         let name = "";
         let email = "";
         let phone = "";
 
-        // Process all columns except the last one (comment column)
-        for (let i = 0; i < row.length - 1; i++) {
-          const cellStr = String(row[i]).trim();
+        // Process columns (excluding last one if it's a comment)
+        for (let i = 0; i < dataEndIndex; i++) {
+          const cellStr = String(row[i] || "").trim();
           if (!cellStr) continue;
 
           // Email detection
@@ -181,12 +184,12 @@ export async function POST(request: NextRequest) {
         const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c: 0 });
         const cell = sheet[cellRef];
 
-        if (cell && cell.s && cell.s.fgColor) {
-          const color = cell.s.fgColor.rgb;
-          leadStatus = getLeadStatusFromColor(color);
-        } else if (cell && cell.s && cell.s.bgColor) {
-          const color = cell.s.bgColor.rgb;
-          leadStatus = getLeadStatusFromColor(color);
+        if (cell && cell.s) {
+          if (cell.s.fgColor && cell.s.fgColor.rgb) {
+            leadStatus = getLeadStatusFromColor(cell.s.fgColor.rgb);
+          } else if (cell.s.bgColor && cell.s.bgColor.rgb) {
+            leadStatus = getLeadStatusFromColor(cell.s.bgColor.rgb);
+          }
         }
 
         leads.push({
