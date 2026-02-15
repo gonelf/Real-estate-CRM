@@ -233,9 +233,11 @@ export default function PropertyPage({ params }: { params: Promise<{ id: string 
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <h3 className="font-semibold text-slate-900 text-sm">{lead.name}</h3>
-                    <LeadStatusBadge status={lead.status} />
+                    <div className="flex-shrink-0">
+                      <LeadStatusBadge status={lead.status} />
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-500">
                     {lead.email && <span>{lead.email}</span>}
@@ -245,7 +247,7 @@ export default function PropertyPage({ params }: { params: Promise<{ id: string 
                     {lead.comments.length} comment{lead.comments.length !== 1 ? "s" : ""}
                   </p>
                 </div>
-                <div className="flex gap-2 flex-shrink-0">
+                <div className="flex gap-2 flex-shrink-0 self-start">
                   <a
                     href={`/property/${id}/lead/${lead.id}`}
                     className="px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-lg hover:bg-slate-800 transition-colors"
