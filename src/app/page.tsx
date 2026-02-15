@@ -1,19 +1,36 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Property, PropertyStatus } from "@/lib/types";
 import { loadProperties, addProperty, updateProperty, deleteProperty } from "@/lib/store";
 import { PropertyStatusBadge } from "@/components/StatusBadge";
 import PropertyForm from "@/components/PropertyForm";
 
+const PROPERTY_STATUS_ORDER: Record<PropertyStatus, number> = {
+  available: 0,
+  cpcv: 1,
+  sold: 2,
+};
+
 export default function HomePage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Property | null>(null);
+  const [statusFilter, setStatusFilter] = useState<PropertyStatus | "all">("all");
 
   useEffect(() => {
     setProperties(loadProperties());
   }, []);
+
+  const filteredAndSortedProperties = useMemo(() => {
+    let filtered = properties;
+
+    if (statusFilter !== "all") {
+      filtered = properties.filter((p) => p.status === statusFilter);
+    }
+
+    return filtered.sort((a, b) => PROPERTY_STATUS_ORDER[a.status] - PROPERTY_STATUS_ORDER[b.status]);
+  }, [properties, statusFilter]);
 
   function handleAdd(data: { address: string; status: PropertyStatus; photos: string[] }) {
     addProperty(data.address, data.status, data.photos);
@@ -39,7 +56,9 @@ export default function HomePage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Properties</h1>
-          <p className="text-sm text-slate-500 mt-1">{properties.length} total</p>
+          <p className="text-sm text-slate-500 mt-1">
+            {filteredAndSortedProperties.length} of {properties.length} properties
+          </p>
         </div>
         {!showForm && !editing && (
           <button
@@ -49,6 +68,49 @@ export default function HomePage() {
             + Add Property
           </button>
         )}
+      </div>
+
+      <div className="flex gap-2 mb-6 flex-wrap">
+        <button
+          onClick={() => setStatusFilter("all")}
+          className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+            statusFilter === "all"
+              ? "bg-slate-900 text-white"
+              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+          }`}
+        >
+          All
+        </button>
+        <button
+          onClick={() => setStatusFilter("available")}
+          className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+            statusFilter === "available"
+              ? "bg-green-600 text-white"
+              : "bg-green-50 text-green-700 hover:bg-green-100"
+          }`}
+        >
+          Available
+        </button>
+        <button
+          onClick={() => setStatusFilter("cpcv")}
+          className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+            statusFilter === "cpcv"
+              ? "bg-amber-600 text-white"
+              : "bg-amber-50 text-amber-700 hover:bg-amber-100"
+          }`}
+        >
+          CPCV
+        </button>
+        <button
+          onClick={() => setStatusFilter("sold")}
+          className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+            statusFilter === "sold"
+              ? "bg-slate-600 text-white"
+              : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+          }`}
+        >
+          Sold
+        </button>
       </div>
 
       {showForm && (
@@ -63,23 +125,29 @@ export default function HomePage() {
         </div>
       )}
 
-      {properties.length === 0 && !showForm ? (
+      {filteredAndSortedProperties.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-xl border border-slate-200">
           <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-2xl text-slate-400">&#8962;</span>
           </div>
-          <h2 className="text-lg font-semibold text-slate-900 mb-1">No properties yet</h2>
-          <p className="text-sm text-slate-500 mb-4">Add your first property to get started.</p>
-          <button
-            onClick={() => setShowForm(true)}
-            className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors"
-          >
-            + Add Property
-          </button>
+          <h2 className="text-lg font-semibold text-slate-900 mb-1">
+            {properties.length === 0 ? "No properties yet" : "No properties match filter"}
+          </h2>
+          <p className="text-sm text-slate-500 mb-4">
+            {properties.length === 0 ? "Add your first property to get started." : "Try a different filter."}
+          </p>
+          {properties.length === 0 && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors"
+            >
+              + Add Property
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {properties.map((property) => (
+          {filteredAndSortedProperties.map((property) => (
             <div
               key={property.id}
               className="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-md transition-shadow"

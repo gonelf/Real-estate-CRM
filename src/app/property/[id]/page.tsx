@@ -1,10 +1,16 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useMemo } from "react";
 import { Property, LeadStatus } from "@/lib/types";
 import { getProperty, addLead, updateLead, deleteLead } from "@/lib/store";
 import { PropertyStatusBadge, LeadStatusBadge } from "@/components/StatusBadge";
 import LeadForm from "@/components/LeadForm";
+
+const LEAD_STATUS_ORDER: Record<LeadStatus, number> = {
+  good: 0,
+  maybe: 1,
+  bad: 2,
+};
 
 export default function PropertyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -12,11 +18,24 @@ export default function PropertyPage({ params }: { params: Promise<{ id: string 
   const [showForm, setShowForm] = useState(false);
   const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [statusFilter, setStatusFilter] = useState<LeadStatus | "all">("all");
 
   useEffect(() => {
     const p = getProperty(id);
     if (p) setProperty(p);
   }, [id]);
+
+  const filteredAndSortedLeads = useMemo(() => {
+    if (!property) return [];
+
+    let filtered = property.leads;
+
+    if (statusFilter !== "all") {
+      filtered = property.leads.filter((l) => l.status === statusFilter);
+    }
+
+    return filtered.sort((a, b) => LEAD_STATUS_ORDER[a.status] - LEAD_STATUS_ORDER[b.status]);
+  }, [property, statusFilter]);
 
   function refresh() {
     const p = getProperty(id);
@@ -100,7 +119,9 @@ export default function PropertyPage({ params }: { params: Promise<{ id: string 
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-lg font-bold text-slate-900">Leads</h2>
-          <p className="text-sm text-slate-500">{property.leads.length} total</p>
+          <p className="text-sm text-slate-500">
+            {filteredAndSortedLeads.length} of {property.leads.length} leads
+          </p>
         </div>
         {!showForm && !editingLeadId && (
           <button
@@ -110,6 +131,49 @@ export default function PropertyPage({ params }: { params: Promise<{ id: string 
             + Add Lead
           </button>
         )}
+      </div>
+
+      <div className="flex gap-2 mb-4 flex-wrap">
+        <button
+          onClick={() => setStatusFilter("all")}
+          className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+            statusFilter === "all"
+              ? "bg-slate-900 text-white"
+              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+          }`}
+        >
+          All
+        </button>
+        <button
+          onClick={() => setStatusFilter("good")}
+          className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+            statusFilter === "good"
+              ? "bg-green-600 text-white"
+              : "bg-green-50 text-green-700 hover:bg-green-100"
+          }`}
+        >
+          Good
+        </button>
+        <button
+          onClick={() => setStatusFilter("maybe")}
+          className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+            statusFilter === "maybe"
+              ? "bg-amber-600 text-white"
+              : "bg-amber-50 text-amber-700 hover:bg-amber-100"
+          }`}
+        >
+          Maybe
+        </button>
+        <button
+          onClick={() => setStatusFilter("bad")}
+          className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+            statusFilter === "bad"
+              ? "bg-red-600 text-white"
+              : "bg-red-50 text-red-700 hover:bg-red-100"
+          }`}
+        >
+          Bad
+        </button>
       </div>
 
       {showForm && (
@@ -124,20 +188,26 @@ export default function PropertyPage({ params }: { params: Promise<{ id: string 
         </div>
       )}
 
-      {property.leads.length === 0 && !showForm ? (
+      {filteredAndSortedLeads.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-xl border border-slate-200">
-          <h3 className="text-base font-semibold text-slate-900 mb-1">No leads yet</h3>
-          <p className="text-sm text-slate-500 mb-4">Add leads for this property.</p>
-          <button
-            onClick={() => setShowForm(true)}
-            className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors"
-          >
-            + Add Lead
-          </button>
+          <h3 className="text-base font-semibold text-slate-900 mb-1">
+            {property.leads.length === 0 ? "No leads yet" : "No leads match filter"}
+          </h3>
+          <p className="text-sm text-slate-500 mb-4">
+            {property.leads.length === 0 ? "Add leads for this property." : "Try a different filter."}
+          </p>
+          {property.leads.length === 0 && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors"
+            >
+              + Add Lead
+            </button>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
-          {property.leads.map((lead) => (
+          {filteredAndSortedLeads.map((lead) => (
             <div
               key={lead.id}
               className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md transition-shadow"
