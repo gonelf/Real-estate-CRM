@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Property, PropertyStatus } from "@/lib/types";
-import { loadProperties, addProperty, updateProperty, deleteProperty } from "@/lib/store";
+import { Property, PropertyStatus, LeadStatus } from "@/lib/types";
+import { loadProperties, addProperty, updateProperty, deleteProperty, bulkAddLeads } from "@/lib/store";
 import { PropertyStatusBadge } from "@/components/StatusBadge";
 import PropertyForm from "@/components/PropertyForm";
+import UploadProperties from "@/components/UploadProperties";
 
 const PROPERTY_STATUS_ORDER: Record<PropertyStatus, number> = {
   available: 0,
@@ -17,6 +18,7 @@ export default function HomePage() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Property | null>(null);
   const [statusFilter, setStatusFilter] = useState<PropertyStatus | "all">("all");
+  const [showUpload, setShowUpload] = useState(false);
 
   useEffect(() => {
     setProperties(loadProperties());
@@ -51,6 +53,22 @@ export default function HomePage() {
     setProperties(loadProperties());
   }
 
+  function handleImportProperties(importedProperties: Array<{
+    address: string;
+    status: PropertyStatus;
+    leads: Array<{ name: string; email: string; phone: string; status: LeadStatus }>;
+  }>) {
+    // Add each property with its leads
+    importedProperties.forEach((prop) => {
+      const newProperty = addProperty(prop.address, prop.status, []);
+      if (newProperty && prop.leads.length > 0) {
+        bulkAddLeads(newProperty.id, prop.leads);
+      }
+    });
+    setProperties(loadProperties());
+    setShowUpload(false);
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -61,12 +79,20 @@ export default function HomePage() {
           </p>
         </div>
         {!showForm && !editing && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors"
-          >
-            + Add Property
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowUpload(true)}
+              className="px-4 py-2 bg-white border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              Upload Excel
+            </button>
+            <button
+              onClick={() => setShowForm(true)}
+              className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors"
+            >
+              + Add Property
+            </button>
+          </div>
         )}
       </div>
 
@@ -201,6 +227,13 @@ export default function HomePage() {
             </div>
           ))}
         </div>
+      )}
+
+      {showUpload && (
+        <UploadProperties
+          onImport={handleImportProperties}
+          onClose={() => setShowUpload(false)}
+        />
       )}
     </div>
   );
