@@ -105,33 +105,39 @@ export async function POST(request: NextRequest) {
 
       // Extract property address from sheet name or first cell
       let address = sheetName.trim();
+      let propertyStatus: PropertyStatus = "available";
+      let dataStartIndex = 1; // Start from row 1 by default (row 0 is property info)
 
-      // Check if first row contains address info
+      // First row is property information
       const firstRow = rows[0];
       if (firstRow && firstRow.length > 0) {
         const firstCell = String(firstRow[0]).trim();
-        // If first cell looks like an address (has numbers/street keywords), use it
-        if (firstCell && (
-          firstCell.match(/\d+/) ||
-          /street|st|avenue|ave|road|rd|drive|dr|blvd|lane|ln/i.test(firstCell)
-        )) {
+        if (firstCell) {
+          // First cell is the property address
           address = firstCell;
         }
-      }
 
-      // Extract property status (look in first few rows)
-      let propertyStatus: PropertyStatus = "available";
-      for (let i = 0; i < Math.min(3, rows.length); i++) {
-        const rowText = rows[i].join(" ");
-        if (rowText.toLowerCase().includes("status")) {
-          propertyStatus = extractPropertyStatus(rowText);
-          break;
+        // Check if status is in the first row
+        const firstRowText = firstRow.join(" ");
+        if (firstRowText.toLowerCase().includes("status")) {
+          propertyStatus = extractPropertyStatus(firstRowText);
         }
       }
 
-      // Find where the lead data starts
-      const headerRowIndex = findHeaderRow(rows);
-      const dataStartIndex = headerRowIndex + 1;
+      // Check if second row is a header row (contains "name", "email", "phone", etc.)
+      if (rows.length > 1) {
+        const secondRow = rows[1];
+        const secondRowText = secondRow.join(" ").toLowerCase();
+        if (
+          secondRowText.includes("name") ||
+          secondRowText.includes("email") ||
+          secondRowText.includes("phone") ||
+          secondRowText.includes("contact")
+        ) {
+          // Skip the header row, start data from row 2
+          dataStartIndex = 2;
+        }
+      }
 
       // Parse leads from rows
       const leads: ParsedLead[] = [];
@@ -144,18 +150,16 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Determine if last column is a comment (only if row has 4+ columns)
-        // Otherwise, parse all columns for data
-        const hasCommentColumn = row.length >= 4;
-        const dataEndIndex = hasCommentColumn ? row.length - 1 : row.length;
-        const comment = hasCommentColumn ? String(row[row.length - 1] || "").trim() : "";
+        // Last column is always the comment (if row has more than 1 column)
+        const dataEndIndex = row.length > 1 ? row.length - 1 : row.length;
+        const comment = row.length > 1 ? String(row[row.length - 1] || "").trim() : "";
 
-        // Try to extract name, email, phone from the row
+        // Try to extract name, email, phone from the row (excluding last column)
         let name = "";
         let email = "";
         let phone = "";
 
-        // Process columns (excluding last one if it's a comment)
+        // Process all columns except the last one (which is the comment)
         for (let i = 0; i < dataEndIndex; i++) {
           const cellStr = String(row[i] || "").trim();
           if (!cellStr) continue;
@@ -174,7 +178,7 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Skip row if no name found
+        // Skip row if no name found (avoid creating empty leads)
         if (!name) continue;
 
         // Get row color from first cell with content
