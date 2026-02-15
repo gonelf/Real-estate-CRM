@@ -103,39 +103,52 @@ export async function POST(request: NextRequest) {
 
       if (rows.length === 0) continue;
 
-      // Extract property address from sheet name or first cell
+      // Find first non-empty row (property information)
       let address = sheetName.trim();
       let propertyStatus: PropertyStatus = "available";
-      let dataStartIndex = 1; // Start from row 1 by default (row 0 is property info)
+      let dataStartIndex = 0;
 
-      // First row is property information
-      const firstRow = rows[0];
-      if (firstRow && firstRow.length > 0) {
-        const firstCell = String(firstRow[0]).trim();
-        if (firstCell) {
-          // First cell is the property address
-          address = firstCell;
+      // Look for first non-empty row (property address)
+      for (let i = 0; i < Math.min(5, rows.length); i++) {
+        const row = rows[i];
+        if (!row || row.every((cell: any) => !cell || String(cell).trim() === "")) {
+          continue; // Skip empty rows
         }
 
-        // Check if status is in the first row
-        const firstRowText = firstRow.join(" ");
-        if (firstRowText.toLowerCase().includes("status")) {
-          propertyStatus = extractPropertyStatus(firstRowText);
+        // Found first non-empty row - extract property info
+        const rowText = row.join(" ").trim();
+
+        // Look for property address in this row
+        for (const cell of row) {
+          const cellStr = String(cell || "").trim();
+          if (cellStr) {
+            address = cellStr; // Use first non-empty cell as address
+            break;
+          }
         }
+
+        // Check for status in this row
+        if (rowText.toLowerCase().includes("status")) {
+          propertyStatus = extractPropertyStatus(rowText);
+        }
+
+        // Start data from next row
+        dataStartIndex = i + 1;
+        break;
       }
 
-      // Check if second row is a header row (contains "name", "email", "phone", etc.)
-      if (rows.length > 1) {
-        const secondRow = rows[1];
-        const secondRowText = secondRow.join(" ").toLowerCase();
+      // Skip header row if it exists
+      if (dataStartIndex < rows.length) {
+        const nextRow = rows[dataStartIndex];
+        const nextRowText = nextRow.join(" ").toLowerCase();
         if (
-          secondRowText.includes("name") ||
-          secondRowText.includes("email") ||
-          secondRowText.includes("phone") ||
-          secondRowText.includes("contact")
+          nextRowText.includes("name") ||
+          nextRowText.includes("email") ||
+          nextRowText.includes("phone") ||
+          nextRowText.includes("contact") ||
+          nextRowText.includes("comment")
         ) {
-          // Skip the header row, start data from row 2
-          dataStartIndex = 2;
+          dataStartIndex++; // Skip header row
         }
       }
 
@@ -150,35 +163,43 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Last column is always the comment (if row has more than 1 column)
-        const dataEndIndex = row.length > 1 ? row.length - 1 : row.length;
-        const comment = row.length > 1 ? String(row[row.length - 1] || "").trim() : "";
+        // Collect all non-empty cells
+        const cells = row.map((cell: any) => String(cell || "").trim()).filter((c: string) => c !== "");
 
-        // Try to extract name, email, phone from the row (excluding last column)
+        if (cells.length === 0) continue;
+
+        // Last cell is the comment (if there are multiple cells)
+        const comment = cells.length > 1 ? cells[cells.length - 1] : "";
+
+        // Process cells (excluding last one if it's likely a comment)
+        const dataCells = cells.length > 1 ? cells.slice(0, -1) : cells;
+
+        // Try to extract name, email, phone from available data
         let name = "";
         let email = "";
         let phone = "";
 
-        // Process all columns except the last one (which is the comment)
-        for (let i = 0; i < dataEndIndex; i++) {
-          const cellStr = String(row[i] || "").trim();
-          if (!cellStr) continue;
-
-          // Email detection
+        for (const cellStr of dataCells) {
+          // Email detection (has @)
           if (cellStr.includes("@") && !email) {
             email = cellStr;
           }
-          // Phone detection (contains digits and common phone patterns)
-          else if (/\d{3}[-.\s]?\d{3}[-.\s]?\d{4}|\(\d{3}\)\s?\d{3}[-.\s]?\d{4}/.test(cellStr) && !phone) {
+          // Phone detection (common phone number patterns)
+          else if (/\d{3}[-.\s]?\d{3}[-.\s]?\d{4}|\(\d{3}\)\s?\d{3}[-.\s]?\d{4}|\+?\d{10,}/.test(cellStr) && !phone) {
             phone = cellStr;
           }
-          // Name detection (not email, not phone, has letters)
-          else if (!name && /[a-zA-Z]{2,}/.test(cellStr) && !cellStr.includes("@")) {
+          // Name detection (has letters, not email, not phone)
+          else if (!name && /[a-zA-Z]{2,}/.test(cellStr) && !cellStr.includes("@") && !/^\d+$/.test(cellStr)) {
             name = cellStr;
           }
         }
 
-        // Skip row if no name found (avoid creating empty leads)
+        // If still no name, use first cell as name (fallback)
+        if (!name && dataCells.length > 0) {
+          name = dataCells[0];
+        }
+
+        // Skip row if still no name (completely empty lead)
         if (!name) continue;
 
         // Get row color from first cell with content
