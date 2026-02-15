@@ -58,11 +58,16 @@ export function addLead(
   name: string,
   email: string,
   phone: string,
-  status: LeadStatus
+  status: LeadStatus,
+  comment?: string
 ): Lead | undefined {
   const properties = getProperties();
   const property = properties.find((p) => p.id === propertyId);
   if (!property) return undefined;
+  const now = new Date().toISOString();
+  const comments: Comment[] = comment
+    ? [{ id: uuidv4(), text: comment, createdAt: now }]
+    : [];
   const lead: Lead = {
     id: uuidv4(),
     propertyId,
@@ -70,8 +75,8 @@ export function addLead(
     email,
     phone,
     status,
-    comments: [],
-    createdAt: new Date().toISOString(),
+    comments,
+    createdAt: now,
   };
   property.leads.push(lead);
   saveProperties(properties);
