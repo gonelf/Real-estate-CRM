@@ -23,8 +23,8 @@ export default function PropertyPage({ params }: { params: Promise<{ id: string 
     if (p) setProperty(p);
   }
 
-  function handleAddLead(data: { name: string; email: string; phone: string; status: LeadStatus }) {
-    addLead(id, data.name, data.email, data.phone, data.status);
+  function handleAddLead(data: { name: string; email: string; phone: string; status: LeadStatus; comment?: string }) {
+    addLead(id, data.name, data.email, data.phone, data.status, data.comment);
     refresh();
     setShowForm(false);
   }

@@ -5,7 +5,7 @@ import { LeadStatus, Lead } from "@/lib/types";
 
 interface LeadFormProps {
   lead?: Lead;
-  onSubmit: (data: { name: string; email: string; phone: string; status: LeadStatus }) => void;
+  onSubmit: (data: { name: string; email: string; phone: string; status: LeadStatus; comment?: string }) => void;
   onCancel: () => void;
 }
 
@@ -14,11 +14,19 @@ export default function LeadForm({ lead, onSubmit, onCancel }: LeadFormProps) {
   const [email, setEmail] = useState(lead?.email ?? "");
   const [phone, setPhone] = useState(lead?.phone ?? "");
   const [status, setStatus] = useState<LeadStatus>(lead?.status ?? "maybe");
+  const [comment, setComment] = useState("");
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
-    onSubmit({ name: name.trim(), email: email.trim(), phone: phone.trim(), status });
+    const trimmedComment = comment.trim();
+    onSubmit({
+      name: name.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      status,
+      ...(trimmedComment && !lead ? { comment: trimmedComment } : {}),
+    });
   }
 
   return (
@@ -84,6 +92,19 @@ export default function LeadForm({ lead, onSubmit, onCancel }: LeadFormProps) {
           ))}
         </div>
       </div>
+
+      {!lead && (
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Comment (optional)</label>
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="Add an initial comment or note..."
+            rows={3}
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent resize-vertical"
+          />
+        </div>
+      )}
 
       <div className="flex gap-2 pt-2">
         <button
