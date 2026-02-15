@@ -27,3 +27,11 @@ export interface Property {
   leads: Lead[];
   createdAt: string;
 }
+
+export interface DetectedLead {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  status: LeadStatus;
+}

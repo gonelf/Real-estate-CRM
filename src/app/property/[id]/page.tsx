@@ -2,9 +2,10 @@
 
 import { useState, useEffect, use, useMemo } from "react";
 import { Property, LeadStatus } from "@/lib/types";
-import { getProperty, addLead, updateLead, deleteLead } from "@/lib/store";
+import { getProperty, addLead, updateLead, deleteLead, bulkAddLeads } from "@/lib/store";
 import { PropertyStatusBadge, LeadStatusBadge } from "@/components/StatusBadge";
 import LeadForm from "@/components/LeadForm";
+import UploadLeads from "@/components/UploadLeads";
 
 const LEAD_STATUS_ORDER: Record<LeadStatus, number> = {
   good: 0,
@@ -19,6 +20,7 @@ export default function PropertyPage({ params }: { params: Promise<{ id: string 
   const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [statusFilter, setStatusFilter] = useState<LeadStatus | "all">("all");
+  const [showUpload, setShowUpload] = useState(false);
 
   useEffect(() => {
     const p = getProperty(id);
@@ -59,6 +61,12 @@ export default function PropertyPage({ params }: { params: Promise<{ id: string 
     if (!confirm("Delete this lead and all its comments?")) return;
     deleteLead(id, leadId);
     refresh();
+  }
+
+  function handleBulkImport(leads: { name: string; email: string; phone: string; status: LeadStatus }[]) {
+    bulkAddLeads(id, leads);
+    refresh();
+    setShowUpload(false);
   }
 
   if (!property) {
@@ -124,12 +132,23 @@ export default function PropertyPage({ params }: { params: Promise<{ id: string 
           </p>
         </div>
         {!showForm && !editingLeadId && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors"
-          >
-            + Add Lead
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowUpload(true)}
+              className="px-4 py-2 bg-white text-slate-700 text-sm font-medium rounded-lg border border-slate-300 hover:bg-slate-50 transition-colors flex items-center gap-1.5"
+            >
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+              </svg>
+              Upload
+            </button>
+            <button
+              onClick={() => setShowForm(true)}
+              className="px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors"
+            >
+              + Add Lead
+            </button>
+          </div>
         )}
       </div>
 
@@ -250,6 +269,14 @@ export default function PropertyPage({ params }: { params: Promise<{ id: string 
             </div>
           ))}
         </div>
+      )}
+
+      {showUpload && (
+        <UploadLeads
+          propertyId={id}
+          onImport={handleBulkImport}
+          onClose={() => setShowUpload(false)}
+        />
       )}
     </div>
   );
