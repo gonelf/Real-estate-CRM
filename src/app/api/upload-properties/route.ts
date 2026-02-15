@@ -180,9 +180,18 @@ export async function POST(request: NextRequest) {
         let phone = "";
 
         for (const cellStr of dataCells) {
-          // Email detection (has @)
-          if (cellStr.includes("@") && !email) {
-            email = cellStr;
+          // Check if cell contains both name and email (e.g., "Ana Duarte design.anaduarte@gmail.com")
+          const emailMatch = cellStr.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+
+          if (emailMatch && !email) {
+            // Extract email
+            email = emailMatch[1];
+
+            // Everything before the email is the name (if not already set)
+            const textBeforeEmail = cellStr.substring(0, emailMatch.index).trim();
+            if (!name && textBeforeEmail) {
+              name = textBeforeEmail;
+            }
           }
           // Phone detection (common phone number patterns)
           else if (/\d{3}[-.\s]?\d{3}[-.\s]?\d{4}|\(\d{3}\)\s?\d{3}[-.\s]?\d{4}|\+?\d{10,}/.test(cellStr) && !phone) {
