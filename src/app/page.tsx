@@ -193,10 +193,12 @@ export default function HomePage() {
               )}
               <div className="p-4">
                 <div className="flex items-start justify-between gap-2 mb-2">
-                  <h3 className="font-semibold text-slate-900 text-sm leading-tight">
+                  <h3 className="font-semibold text-slate-900 text-sm leading-tight flex-1 min-w-0">
                     {property.address}
                   </h3>
-                  <PropertyStatusBadge status={property.status} />
+                  <div className="flex-shrink-0">
+                    <PropertyStatusBadge status={property.status} />
+                  </div>
                 </div>
                 <p className="text-xs text-slate-500 mb-3">
                   {property.leads.length} lead{property.leads.length !== 1 ? "s" : ""}

@@ -61,17 +61,19 @@ export default function LeadPage({
 
       <div className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
         <div className="flex items-start justify-between gap-4 mb-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <h1 className="text-xl font-bold text-slate-900">{lead.name}</h1>
-              <LeadStatusBadge status={lead.status} />
+              <div className="flex-shrink-0">
+                <LeadStatusBadge status={lead.status} />
+              </div>
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500">
               {lead.email && <span>{lead.email}</span>}
               {lead.phone && <span>{lead.phone}</span>}
             </div>
           </div>
-          <div className="text-right flex-shrink-0">
+          <div className="text-right flex-shrink-0 self-start">
             <p className="text-xs text-slate-400">Property</p>
             <p className="text-sm font-medium text-slate-700">{property.address}</p>
             <div className="mt-1">
