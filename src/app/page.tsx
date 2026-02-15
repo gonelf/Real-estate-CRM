@@ -56,7 +56,7 @@ export default function HomePage() {
   function handleImportProperties(importedProperties: Array<{
     address: string;
     status: PropertyStatus;
-    leads: Array<{ name: string; email: string; phone: string; status: LeadStatus }>;
+    leads: Array<{ name: string; email: string; phone: string; status: LeadStatus; comment?: string }>;
   }>) {
     // Add each property with its leads
     importedProperties.forEach((prop) => {

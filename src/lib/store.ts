@@ -140,22 +140,27 @@ export function deleteComment(propertyId: string, leadId: string, commentId: str
 
 export function bulkAddLeads(
   propertyId: string,
-  leads: { name: string; email: string; phone: string; status: LeadStatus }[]
+  leads: { name: string; email: string; phone: string; status: LeadStatus; comment?: string }[]
 ): Lead[] {
   const properties = getProperties();
   const property = properties.find((p) => p.id === propertyId);
   if (!property) return [];
   const now = new Date().toISOString();
-  const newLeads: Lead[] = leads.map((l) => ({
-    id: uuidv4(),
-    propertyId,
-    name: l.name,
-    email: l.email,
-    phone: l.phone,
-    status: l.status,
-    comments: [],
-    createdAt: now,
-  }));
+  const newLeads: Lead[] = leads.map((l) => {
+    const comments: Comment[] = l.comment && l.comment.trim()
+      ? [{ id: uuidv4(), text: l.comment, createdAt: now }]
+      : [];
+    return {
+      id: uuidv4(),
+      propertyId,
+      name: l.name,
+      email: l.email,
+      phone: l.phone,
+      status: l.status,
+      comments,
+      createdAt: now,
+    };
+  });
   property.leads.push(...newLeads);
   saveProperties(properties);
   return newLeads;

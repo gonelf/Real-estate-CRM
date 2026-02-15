@@ -7,6 +7,7 @@ interface ParsedLead {
   email: string;
   phone: string;
   status: LeadStatus;
+  comment: string;
 }
 
 interface ParsedProperty {
@@ -143,13 +144,17 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Try to extract name, email, phone from the row
+        // Extract comment from last column
+        const comment = row.length > 0 ? String(row[row.length - 1] || "").trim() : "";
+
+        // Try to extract name, email, phone from the row (excluding last column which is comment)
         let name = "";
         let email = "";
         let phone = "";
 
-        for (const cell of row) {
-          const cellStr = String(cell).trim();
+        // Process all columns except the last one (comment column)
+        for (let i = 0; i < row.length - 1; i++) {
+          const cellStr = String(row[i]).trim();
           if (!cellStr) continue;
 
           // Email detection
@@ -189,6 +194,7 @@ export async function POST(request: NextRequest) {
           email,
           phone,
           status: leadStatus,
+          comment,
         });
       }
 

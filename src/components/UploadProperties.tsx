@@ -9,6 +9,7 @@ interface ParsedLead {
   email: string;
   phone: string;
   status: LeadStatus;
+  comment: string;
 }
 
 interface ParsedProperty {
@@ -270,23 +271,30 @@ export default function UploadProperties({ onImport, onClose }: UploadProperties
                           {property.leads.slice(0, 3).map((lead, j) => (
                             <div
                               key={j}
-                              className="flex items-center gap-2 text-xs bg-white rounded px-2 py-1.5 border border-slate-100"
+                              className="bg-white rounded px-2 py-1.5 border border-slate-100"
                             >
-                              <span
-                                className={`w-2 h-2 rounded-full ${
-                                  lead.status === "good"
-                                    ? "bg-green-500"
-                                    : lead.status === "bad"
-                                    ? "bg-red-500"
-                                    : "bg-amber-500"
-                                }`}
-                              />
-                              <span className="font-medium text-slate-700">{lead.name}</span>
-                              {lead.email && (
-                                <span className="text-slate-500">{lead.email}</span>
-                              )}
-                              {lead.phone && (
-                                <span className="text-slate-500">{lead.phone}</span>
+                              <div className="flex items-center gap-2 text-xs">
+                                <span
+                                  className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                    lead.status === "good"
+                                      ? "bg-green-500"
+                                      : lead.status === "bad"
+                                      ? "bg-red-500"
+                                      : "bg-amber-500"
+                                  }`}
+                                />
+                                <span className="font-medium text-slate-700">{lead.name}</span>
+                                {lead.email && (
+                                  <span className="text-slate-500">{lead.email}</span>
+                                )}
+                                {lead.phone && (
+                                  <span className="text-slate-500">{lead.phone}</span>
+                                )}
+                              </div>
+                              {lead.comment && (
+                                <p className="text-xs text-slate-400 mt-1 pl-4 italic">
+                                  {lead.comment}
+                                </p>
                               )}
                             </div>
                           ))}
