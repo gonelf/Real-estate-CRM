@@ -68,43 +68,43 @@ function findHeaderRow(rows: any[][]): number {
   return 0; // Default to first row
 }
 
-// Helper to detect if a row is a property separator (dark green header)
-function isPropertySeparatorRow(
-  sheet: XLSX.WorkSheet,
-  rowIndex: number,
-  row: any[]
-): boolean {
-  if (!row || row.length === 0) return false;
+// Helper to check if a row is empty
+function isEmptyRow(row: any[]): boolean {
+  if (!row || row.length === 0) return true;
+  return row.every((cell: any) => !cell || String(cell).trim() === "");
+}
 
-  // Check if any cell in this row has a dark background (property header)
-  for (let colIndex = 0; colIndex < row.length; colIndex++) {
-    const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
-    const cell = sheet[cellRef];
+// Helper to detect property sections based on empty row separators
+function findPropertySections(rows: any[][]): Array<{ startRow: number; endRow: number }> {
+  const sections: Array<{ startRow: number; endRow: number }> = [];
+  let currentSectionStart = -1;
 
-    if (cell && cell.s) {
-      // Check for background color
-      const bgColor = cell.s.bgColor?.rgb || cell.s.fgColor?.rgb;
-      if (bgColor) {
-        const hex = bgColor.toUpperCase();
-        const r = parseInt(hex.substring(0, 2), 16) || 0;
-        const g = parseInt(hex.substring(2, 4), 16) || 0;
-        const b = parseInt(hex.substring(4, 6), 16) || 0;
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const isEmpty = isEmptyRow(row);
 
-        // Dark colors (low RGB values - typically dark green/gray headers)
-        // Or saturated colors that indicate section headers
-        const isDark = r + g + b < 400; // Dark colors have low total RGB
-        const hasContent = row.some((cell: any) =>
-          cell && String(cell).trim().length > 0
-        );
-
-        if (isDark && hasContent) {
-          return true;
-        }
-      }
+    if (!isEmpty && currentSectionStart === -1) {
+      // Start of a new section
+      currentSectionStart = i;
+    } else if (isEmpty && currentSectionStart !== -1) {
+      // End of current section
+      sections.push({
+        startRow: currentSectionStart,
+        endRow: i,
+      });
+      currentSectionStart = -1;
     }
   }
 
-  return false;
+  // Handle last section if it doesn't end with empty row
+  if (currentSectionStart !== -1) {
+    sections.push({
+      startRow: currentSectionStart,
+      endRow: rows.length,
+    });
+  }
+
+  return sections;
 }
 
 export async function POST(request: NextRequest) {
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
 
     const properties: ParsedProperty[] = [];
 
-    // Process each sheet - may contain multiple properties
+    // Process each sheet - may contain multiple properties separated by empty rows
     for (const sheetName of workbook.SheetNames) {
       const sheet = workbook.Sheets[sheetName];
 
@@ -142,80 +142,40 @@ export async function POST(request: NextRequest) {
 
       if (rows.length === 0) continue;
 
-      // Find all property separator rows (dark green headers)
-      const propertySeparators: Array<{ rowIndex: number; address: string }> = [];
+      // Find property sections (separated by empty rows)
+      const sections = findPropertySections(rows);
 
-      for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-        const row = rows[rowIndex];
-
-        if (isPropertySeparatorRow(sheet, rowIndex, row)) {
-          // Extract property address from this row
-          let address = "";
-          for (const cell of row) {
-            const cellStr = String(cell || "").trim();
-            if (cellStr) {
-              address = cellStr;
-              break;
-            }
-          }
-
-          if (address) {
-            propertySeparators.push({ rowIndex, address });
-          }
-        }
-      }
-
-      // If no separators found, treat entire sheet as one property (fallback to old behavior)
-      if (propertySeparators.length === 0) {
-        // Use sheet name or first non-empty cell as address
-        let address = sheetName.trim();
-        let propertyStatus: PropertyStatus = "available";
-        let dataStartIndex = 0;
-
-        // Look for first non-empty row (property address)
-        for (let i = 0; i < Math.min(5, rows.length); i++) {
-          const row = rows[i];
-          if (!row || row.every((cell: any) => !cell || String(cell).trim() === "")) {
-            continue;
-          }
-
-          const rowText = row.join(" ").trim();
-          for (const cell of row) {
-            const cellStr = String(cell || "").trim();
-            if (cellStr) {
-              address = cellStr;
-              break;
-            }
-          }
-
-          if (rowText.toLowerCase().includes("status")) {
-            propertyStatus = extractPropertyStatus(rowText);
-          }
-
-          dataStartIndex = i + 1;
-          break;
-        }
-
-        propertySeparators.push({ rowIndex: dataStartIndex - 1, address });
+      // If no sections found, treat entire sheet as one property (fallback)
+      if (sections.length === 0) {
+        sections.push({ startRow: 0, endRow: rows.length });
       }
 
       // Process each property section
-      for (let propIndex = 0; propIndex < propertySeparators.length; propIndex++) {
-        const separator = propertySeparators[propIndex];
-        const address = separator.address;
+      for (const section of sections) {
+        const sectionRows = rows.slice(section.startRow, section.endRow);
+
+        if (sectionRows.length === 0) continue;
+
+        // First row of section = property address
+        let address = sheetName.trim();
+        const firstRow = sectionRows[0];
+
+        for (const cell of firstRow) {
+          const cellStr = String(cell || "").trim();
+          if (cellStr) {
+            address = cellStr;
+            break;
+          }
+        }
+
         const propertyStatus: PropertyStatus = "available";
 
-        // Determine range for this property (from separator to next separator or end)
-        const startRowIndex = separator.rowIndex + 1;
-        const endRowIndex =
-          propIndex < propertySeparators.length - 1
-            ? propertySeparators[propIndex + 1].rowIndex
-            : rows.length;
+        // Determine where lead data starts (skip property name row)
+        let dataStartIndex = 1;
 
-        // Skip header row if it exists right after separator
-        let dataStartIndex = startRowIndex;
-        if (dataStartIndex < rows.length) {
-          const nextRow = rows[dataStartIndex];
+        // Check if second row is a header row (name, email, phone, etc.)
+        if (dataStartIndex < sectionRows.length) {
+          const nextRow = sectionRows[dataStartIndex];
           const nextRowText = nextRow.join(" ").toLowerCase();
           if (
             nextRowText.includes("name") ||
@@ -228,21 +188,15 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Parse leads from this property's rows
+        // Parse leads from remaining rows in this section
         const leads: ParsedLead[] = [];
 
-        for (let rowIndex = dataStartIndex; rowIndex < endRowIndex; rowIndex++) {
-          const row = rows[rowIndex];
+        for (let i = dataStartIndex; i < sectionRows.length; i++) {
+          const row = sectionRows[i];
+          const actualRowIndex = section.startRow + i;
 
           // Skip empty rows
-          if (!row || row.length === 0 || row.every((cell: any) => !cell || String(cell).trim() === "")) {
-            continue;
-          }
-
-          // Skip if this is another property separator (shouldn't happen but be safe)
-          if (isPropertySeparatorRow(sheet, rowIndex, row)) {
-            break;
-          }
+          if (isEmptyRow(row)) continue;
 
           // Collect all non-empty cells
           const cells = row.map((cell: any) => String(cell || "").trim()).filter((c: string) => c !== "");
@@ -294,7 +248,7 @@ export async function POST(request: NextRequest) {
 
           // Check all cells in the row to find one with a background color
           for (let colIndex = 0; colIndex < row.length; colIndex++) {
-            const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
+            const cellRef = XLSX.utils.encode_cell({ r: actualRowIndex, c: colIndex });
             const cell = sheet[cellRef];
 
             if (cell && cell.s) {
