@@ -211,18 +211,33 @@ export async function POST(request: NextRequest) {
         // Skip row if still no name (completely empty lead)
         if (!name) continue;
 
-        // Get row color from first cell with content
+        // Get row color by checking any cell in the row
         let leadStatus: LeadStatus = "maybe";
 
-        // Get the Excel cell reference for the first cell in this row
-        const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c: 0 });
-        const cell = sheet[cellRef];
+        // Check all cells in the row to find one with a background color
+        // Color might only be applied to one cell, not the entire row
+        for (let colIndex = 0; colIndex < row.length; colIndex++) {
+          const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
+          const cell = sheet[cellRef];
 
-        if (cell && cell.s) {
-          if (cell.s.fgColor && cell.s.fgColor.rgb) {
-            leadStatus = getLeadStatusFromColor(cell.s.fgColor.rgb);
-          } else if (cell.s.bgColor && cell.s.bgColor.rgb) {
-            leadStatus = getLeadStatusFromColor(cell.s.bgColor.rgb);
+          if (cell && cell.s) {
+            let colorFound = false;
+
+            // Check foreground color first
+            if (cell.s.fgColor && cell.s.fgColor.rgb) {
+              leadStatus = getLeadStatusFromColor(cell.s.fgColor.rgb);
+              colorFound = true;
+            }
+            // Then check background color
+            else if (cell.s.bgColor && cell.s.bgColor.rgb) {
+              leadStatus = getLeadStatusFromColor(cell.s.bgColor.rgb);
+              colorFound = true;
+            }
+
+            // If we found a color, stop searching
+            if (colorFound && leadStatus !== "maybe") {
+              break;
+            }
           }
         }
 
